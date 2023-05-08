@@ -1,4 +1,4 @@
-var listname, starlists, donelist, startagcount, donecount,prev;
+var listname, starlists, donelist, starlistscount, donecount,prev;
 var list = {
     starlists: [],
 
@@ -13,10 +13,12 @@ var starTagName;
 var port = chrome.runtime.connect();
 var bg = chrome.extension.getBackgroundPage();
 init();
-var userName = localStorage.userName
+
 function init() {
-    if(userName===undefined){
-        alert("Please config your GitHub UserName and Access Token first!");
+    var userName = localStorage.userName;
+    if(userName===undefined || userName===""){
+        window.location.href = "options.html";
+        // window.location.reload();
     }
 
     var xhr = new XMLHttpRequest();
@@ -44,7 +46,7 @@ function init() {
 
             listname = document.querySelector("#listname");
             starlists = document.querySelector("#starlists");
-            startagcount = document.querySelector("#startagcount");
+            starlistscount = document.querySelector("#starlistscount");
 
             //修改显示input
             starlists.addEventListener("dblclick", dblclickHandler);
@@ -188,6 +190,6 @@ function renderList() {
         }, "");
     }
     // 存储列表的数量
-    startagcount.textContent = list.starlists.length;
+    starlistscount.textContent = list.starlists.length;
     
 }

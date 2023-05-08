@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+	<meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: content: https://ssl.gstatic.com; 
+    media-src * blob: 'self' http://* 'unsafe-inline' 'unsafe-eval'; 
+    style-src * 'self' 'unsafe-inline'; 
+    img-src * 'self' data: content:; 
+    connect-src * blob:;">
+
+    <title>Document</title>
+    <link href="./css/main.css" rel="stylesheet" />
+  </head>
+  <body>
+      <h2>⭐️ GitHub Star Lists <span id="starlistscount">0</span></h2>
+      <div id="checkboxDiv">
+        <div id="form">
+          <input type="text" id="listname" placeholder="⭐️ Name this list" 
+            value="" aria-label="List name" maxlength="32" data-maxlength="32" autofocus="" 
+            required="" autocomplete="off" spellcheck="false"/>
+          </div>
+          <ul id="starlists" class="box">
+        
+          </ul>
+      </div>
+    
+	<script type="text/javascript" src="js/popup.js"></script>
+  </body>
+</html>
+
