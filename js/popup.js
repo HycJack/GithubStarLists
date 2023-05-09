@@ -1,11 +1,16 @@
 var listname, starlists, donelist, starlistscount, donecount,prev;
 var list = {
     starlists: [],
-
+    githubstarlists: [],
+};
+var searchlist = {
+    starlists: [],
+    githubstarlists: [],
 };
 var taburl;
 
 var staredlist =  [];
+var githubLists =  [];
 var repoStared;
 var starTagName;
 
@@ -14,7 +19,26 @@ var port = chrome.runtime.connect();
 var bg = chrome.extension.getBackgroundPage();
 init();
 
+var searchinput
+
 function init() {
+    searchinput = document.querySelector("#search-input");
+    listname = document.querySelector("#listname");
+    starlists = document.querySelector("#starlists");
+    starlistscount = document.querySelector("#starlistscount");
+
+    //修改显示input
+    starlists.addEventListener("dblclick", dblclickHandler);
+    //input失焦处理
+    starlists.addEventListener("focusout", blurHandler);
+    // 输入文本内容后，敲回车
+    listname.addEventListener("keyup", keyHandler);
+    //修改checkbox
+    starlists.addEventListener("change", changeHandler);
+    searchinput.addEventListener("keyup", updateList);
+    searchinput.addEventListener("search", updateList);
+
+
     var userName = localStorage.userName;
     if(userName===undefined || userName===""){
         window.location.href = "options.html";
@@ -25,13 +49,17 @@ function init() {
     xhr.open("GET", "https://github.com/"+userName+"?tab=stars", true);
     xhr.onreadystatechange = function() {
     if (xhr.readyState == 4) {
-        // JSON解析器不会执行攻击者设计的脚本.
         var resp = xhr.responseText;
         var parser = new DOMParser();
-        var githubLists=[];
+        
         var doc = parser.parseFromString(resp, 'text/html');
-        doc.querySelectorAll('.Box .Box-row .flex-row h3').forEach(item => {
-            githubLists.push(item.textContent);
+        doc.querySelectorAll('.Box a').forEach(item => {
+            const h3 = item.querySelector('.flex-row h3')
+            const textSmall = item.querySelector('.flex-row .text-small')
+            if(h3){
+                console.log(h3.textContent, textSmall)
+                githubLists.push(h3.textContent);
+            }
         });
         bg.repoStars.repo = "";
         bg.repoStars.tag = [];
@@ -43,31 +71,15 @@ function init() {
             // bg.repoStars.tag = repoStared?repoStared.tag : [];
             // alert(tab.title);
             // alert(tab.url);
-
-            listname = document.querySelector("#listname");
-            starlists = document.querySelector("#starlists");
-            starlistscount = document.querySelector("#starlistscount");
-
-            //修改显示input
-            starlists.addEventListener("dblclick", dblclickHandler);
-            //input失焦处理
-            starlists.addEventListener("focusout", blurHandler);
-            // 输入文本内容后，敲回车
-            listname.addEventListener("keyup", keyHandler);
-            //修改checkbox
-            starlists.addEventListener("change", changeHandler);
         
             // 初始化渲染（长期保存）
+            const listnamekey = userName+"list"
             if (localStorage.list) {
                 // 将localStorage.list转换为对象并覆盖原来的list
                 list = JSON.parse(localStorage.list);
             }
             if(githubLists && githubLists.length > 0){
-                githubLists.forEach(item => {
-                    if(!list.starlists.includes(item)){
-                        list.starlists.push(item)
-                    }
-                });
+                list.githubstarlists = githubLists
             }
             if(list){
                 renderList();
@@ -79,13 +91,38 @@ function init() {
     
 }
 
+function updateList() {
+
+    // 获取输入框中的值，并根据该值动态更新列表内容
+    var searchValue = searchinput.value;
+    if (searchValue.length > 0) {
+        list.starlists.forEach(item => {
+            if(item.indexOf(searchValue)!=-1 && !searchlist.starlists.includes(item)){
+                searchlist.starlists.push(item)
+            }
+        })
+        list.githubstarlists.forEach(item => {
+            if(item.indexOf(searchValue)!=-1 && !searchlist.githubstarlists.includes(item)){
+                searchlist.githubstarlists.push(item)
+            }
+        })
+        renderSearch();
+    } else {
+        renderList();
+    }
+    
+  }
 
 function keyHandler(e) {
     // listname.value.trim().length===0 输入框内容为空
     // 如果按下的键不是Enter，或者输入框内容为空时，跳出
     if (e.keyCode !== 13 || listname.value.trim().length === 0) return;
     // 将输入框中的内容放入 starlists
-    list.starlists.push(listname.value);
+    if(list.starlists.includes(listname.value)){
+        alert("The list alredy exists")
+    }else{
+        list.starlists.push(listname.value);    
+    }
     
     // 将输入框清空
     listname.value = "";
@@ -181,6 +218,102 @@ function renderList() {
                 <li>
                     <input type="checkbox"  name = "${item}" ${
                         (repoStared &&  repoStared.repo.includes(taburl)) ? "checked" : ""
+                      }  ${
+                        (isGithubRepo(taburl)) ? "" : "disabled"
+                      } >
+                    <p>${item}<input type="text" id="tagName" style="display:none"></p>
+                    </input>
+                </li>
+            `
+        );
+        }, "");
+    }
+    // 存储列表的数量
+    starlistscount.textContent = list.starlists.length + list.githubstarlists.length;
+    
+}
+
+function isGithubRepo(url) {
+    // 正则表达式匹配出仓库链接
+    const regex = /^https?:\/\/github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-_.]+)(?:\/?)$/;
+    const matchResult = url.match(regex);
+    
+    // 判断是否匹配成功
+    if (matchResult && matchResult.length === 3) {
+      return true
+    }
+    
+    // 如果不是 GitHub 仓库链接或无法提取出仓库链接，则返回 null
+    return false;
+  }
+  function isGithubBlobRepo(url) {
+    // 正则表达式匹配出仓库链接
+    const regex = /^https?:\/\/github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-_.]+)(?:\/?|(?:\/blob\/[a-z0-9-_]+)?(?:\/[a-zA-Z0-9-_.]+)*)$/;
+    const matchResult = url.match(regex);
+    
+    // 判断是否匹配成功
+    if (matchResult && matchResult.length === 3) {
+        return true
+    }
+    
+    // 如果不是 GitHub 仓库链接或无法提取出仓库链接，则返回 null
+    return false;
+  }
+
+function extractGitHubRepoLink(url) {
+    // 正则表达式匹配出仓库链接
+    const regex = /^https?:\/\/github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-_.]+)(?:\/?)$/;
+    const matchResult = url.match(regex);
+    
+    // 判断是否匹配成功
+    if (matchResult && matchResult.length === 3) {
+      const ownerName = matchResult[1];
+      const repoName = matchResult[2];
+      const repoLink = `https://github.com/${ownerName}/${repoName}`;
+      return repoLink;
+    }
+    
+    // 如果不是 GitHub 仓库链接或无法提取出仓库链接，则返回 null
+    return null;
+  }
+  function extractGitHubBlobRepoLink(url) {
+    // 正则表达式匹配出仓库链接
+    const regex = /^https?:\/\/github\.com\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-_.]+)(?:\/?|(?:\/blob\/[a-z0-9-_]+)?(?:\/[a-zA-Z0-9-_.]+)*)$/;
+    const matchResult = url.match(regex);
+    
+    // 判断是否匹配成功
+    if (matchResult && matchResult.length === 3) {
+      const ownerName = matchResult[1];
+      const repoName = matchResult[2];
+      const repoLink = `https://github.com/${ownerName}/${repoName}`;
+      return repoLink;
+    }
+    
+    // 如果不是 GitHub 仓库链接或无法提取出仓库链接，则返回 null
+    return null;
+  }
+
+function renderSearch() {
+
+    // 遍历list
+    // list是一个对象，包含 starlists
+    // 这两个key正好和ol以及ul的id是相同的
+    // 通过window[prop]可以获取到ol和ul
+    for (var prop in searchlist) {
+        // 将li遍历存到ol和ul里面
+        // innerHTML:获取HTML当前标签的起始和结束里面的内容
+        window[prop].innerHTML = searchlist[prop].reduce((value, item) => {
+        repoStared = JSON.parse(localStorage.getItem(item));
+        if((repoStared &&  repoStared.repo.includes(taburl))){
+            bg.repoStars.tag.push(item);
+        }
+        
+        return (
+            value +
+            `
+                <li>
+                    <input type="checkbox"  name = "${item}" ${
+                        (repoStared &&  repoStared.repo.includes(taburl)) ? "checked" : ""
                       }>
                     <p>${item}<input type="text" id="tagName" style="display:none"></p>
                     </input>
@@ -190,6 +323,9 @@ function renderList() {
         }, "");
     }
     // 存储列表的数量
-    starlistscount.textContent = list.starlists.length;
-    
+    starlistscount.textContent = searchlist.starlists.length + searchlist.githubstarlists.length;
+    searchlist = {
+        starlists: [],
+        githubstarlists: [],
+    };
 }

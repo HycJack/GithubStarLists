@@ -12,7 +12,7 @@ body {
     height: 20px;
     width: 98%;
     margin-right: 5px;
-    background-color: #f6f8fa;
+    /* background-color: #f6f8fa; */
     border: 1px solid #d0d7de;
     border-radius: 6px;
     margin-bottom: 10px;
@@ -56,10 +56,10 @@ ol,ul{
 }
 li input{
 	position:absolute;
-	top:2px;
+	top:3px;
 	left:10px;
-	width:22px;
-	height:22px;
+	width:20px;
+	height:20px;
 	cursor:pointer;
 }
 p{
@@ -98,4 +98,47 @@ li{
 	top: 50%;
 	transform: translateY(-50%);
 	opacity: .51;
+}
+
+.text-small {
+    font-size: var(--h6-size, 12px) !important;
+}
+
+.search {
+	display: flex;
+
+}
+
+.subnav-search-input {
+    padding-left: 25px;
+}
+.form-control, .form-select {
+    /* padding: 5px 12px; */
+    /* font-size: 14px; */
+	height: 24px;
+    width: 99%;
+    line-height: 20px;
+    vertical-align: middle;
+    background-color: #ffffff;;
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    border: 1px solid #d0d7de;;
+    border-radius: 6px;
+    transition: 80ms cubic-bezier(0.33, 1, 0.68, 1);
+    transition-property: color,background-color,box-shadow,border-color;
+}
+
+.subnav-search-icon {
+    position: absolute;
+    top: 110px;
+    left: 15px;
+    color: #656d76;
+    text-align: center;
+    pointer-events: none;
+}
+.octicon {
+    display: inline-block;
+    overflow: visible !important;
+    vertical-align: text-bottom;
+    fill: currentColor;
 }
