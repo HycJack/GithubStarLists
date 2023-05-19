@@ -12,12 +12,42 @@ var taburl;
 var staredlist =  [];
 var githubLists =  [];
 var repoStared;
+var currentRepoStaredList = [];
 var starTagName;
+  
+  // 提示用户登录 GitHub
+  function notifyLoginRequired() {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png', // 替换为你的插件图标的路径
+      title: 'GitHub Login Required',
+      message: 'Please login to your GitHub account to continue.'
+    });
+  }
+
+  handleBeforeSendHeaders()
+  
+  // 处理请求发送前的事件
+  function handleBeforeSendHeaders() {
+    return checkLoginStatus()
+      .then(isLoggedIn => {
+        if (isLoggedIn) {
+          // 用户已登录，继续请求
+          init();
+        } else {
+          // 用户未登录，提示登录
+          notifyLoginRequired();
+        }
+      })
+      .catch(error => {
+        console.error(error);
+      });
+  }
 
 //这里主要是为了与background建立连接，当页面关闭的时候连接就会断开，此时background中你注册的连接关闭函数此时会执行，因为background环境一直存在，除非你关闭了电脑
 var port = chrome.runtime.connect();
 var bg = chrome.extension.getBackgroundPage();
-init();
+
 
 var searchinput
 
@@ -38,57 +68,70 @@ function init() {
     searchinput.addEventListener("keyup", updateList);
     searchinput.addEventListener("search", updateList);
 
-
-    var userName = localStorage.userName;
-    if(userName===undefined || userName===""){
-        window.location.href = "options.html";
-        // window.location.reload();
-    }
-
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "https://github.com/"+userName+"?tab=stars", true);
-    xhr.onreadystatechange = function() {
-    if (xhr.readyState == 4) {
-        var resp = xhr.responseText;
-        var parser = new DOMParser();
+    getUserFromCookie().then(userName => {
         
-        var doc = parser.parseFromString(resp, 'text/html');
-        doc.querySelectorAll('.Box a').forEach(item => {
-            const h3 = item.querySelector('.flex-row h3')
-            const textSmall = item.querySelector('.flex-row .text-small')
-            if(h3){
-                console.log(h3.textContent, textSmall)
-                githubLists.push(h3.textContent);
-            }
-        });
-        bg.repoStars.repo = "";
-        bg.repoStars.tag = [];
-        bg.repoStars.deltag = [];
-        chrome.tabs.getSelected(null, function (tab) { // 先获取当前页面的tabID
-            taburl = tab.url;
-            bg.repoStars.repo = tab.url;
-            // repoStared = JSON.parse(localStorage.getItem(tab.url));
-            // bg.repoStars.tag = repoStared?repoStared.tag : [];
-            // alert(tab.title);
-            // alert(tab.url);
-        
-            // 初始化渲染（长期保存）
-            const listnamekey = userName+"list"
-            if (localStorage.list) {
-                // 将localStorage.list转换为对象并覆盖原来的list
-                list = JSON.parse(localStorage.list);
-            }
-            if(githubLists && githubLists.length > 0){
-                list.githubstarlists = githubLists
-            }
-            if(list){
-                renderList();
-            }
-        });
-    }
-    }
-    xhr.send();
-    
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "https://github.com/"+userName+"?tab=stars", true);
+        xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) {
+            var resp = xhr.responseText;
+            var parser = new DOMParser();
+            
+            var doc = parser.parseFromString(resp, 'text/html');
+            doc.querySelectorAll('.Box a').forEach(item => {
+                const h3 = item.querySelector('.flex-row h3')
+                const textSmall = item.querySelector('.flex-row .text-small')
+                if(h3){
+                    // console.log(h3.textContent, textSmall)
+                    githubLists.push(h3.textContent);
+                }
+            });
+            bg.repoStars.repo = "";
+            bg.repoStars.tag = [];
+            bg.repoStars.deltag = [];
+            chrome.tabs.getSelected(null, function (tab) { // 先获取当前页面的tabID
+                taburl = tab.url;
+                bg.repoStars.repo = tab.url;
+                // repoStared = JSON.parse(localStorage.getItem(tab.url));
+                // bg.repoStars.tag = repoStared?repoStared.tag : [];
+                // alert(tab.title);
+                // alert(tab.url);
+            
+                // 初始化渲染（长期保存）
+                // const listnamekey = userName+"list"
+            
+                
+                if (localStorage.list) {
+                    // 将localStorage.list转换为对象并覆盖原来的list
+                    list = JSON.parse(localStorage.list);
+                }
+                if(githubLists && githubLists.length > 0){
+                    list.githubstarlists = githubLists
+                }
+                if(list){
+                    if(isGithubRepo(taburl) || isGithubBlobRepo(taburl)){
+                        getRepoStarlists(taburl, (error, results) => {
+                            if (error) {
+                              console.error(error);
+                              return;
+                            }
+                            
+                            currentRepoStaredList.push(...results);
+                            renderList();
+                          });
+                        
+                    }else{
+                        renderList();
+                    }
+                }
+            });
+        }
+        }
+        xhr.send();
+    })
+    .catch(error => {
+        console.error(error);
+    });
 }
 
 function updateList() {
@@ -97,12 +140,12 @@ function updateList() {
     var searchValue = searchinput.value;
     if (searchValue.length > 0) {
         list.starlists.forEach(item => {
-            if(item.indexOf(searchValue)!=-1 && !searchlist.starlists.includes(item)){
+            if(item.toLowerCase().indexOf(searchValue)!=-1 && !searchlist.starlists.includes(item.toLowerCase())){
                 searchlist.starlists.push(item)
             }
         })
         list.githubstarlists.forEach(item => {
-            if(item.indexOf(searchValue)!=-1 && !searchlist.githubstarlists.includes(item)){
+            if(item.toLowerCase().indexOf(searchValue)!=-1 && !searchlist.githubstarlists.includes(item.toLowerCase())){
                 searchlist.githubstarlists.push(item)
             }
         })
@@ -182,6 +225,7 @@ function changeHandler(e) {
                 if(item != taburl){
                     bg.staredRepo.repo.push(taburl)
                     bg.staredRepo.tag = e.target.name
+                    bg.repoStars.tag.push(e.target.name)
                 }
          });
         }
@@ -217,9 +261,9 @@ function renderList() {
             `
                 <li>
                     <input type="checkbox"  name = "${item}" ${
-                        (repoStared &&  repoStared.repo.includes(taburl)) ? "checked" : ""
+                        ((repoStared &&  repoStared.repo.includes(taburl)) || (currentRepoStaredList.includes(item))) ? "checked" : ""
                       }  ${
-                        (isGithubRepo(taburl)) ? "" : "disabled"
+                        (isGithubRepo(taburl) || isGithubBlobRepo(taburl)) ? "" : "disabled"
                       } >
                     <p>${item}<input type="text" id="tagName" style="display:none"></p>
                     </input>
@@ -313,8 +357,10 @@ function renderSearch() {
             `
                 <li>
                     <input type="checkbox"  name = "${item}" ${
-                        (repoStared &&  repoStared.repo.includes(taburl)) ? "checked" : ""
-                      }>
+                        ((repoStared &&  repoStared.repo.includes(taburl)) || (currentRepoStaredList.includes(item))) ? "checked" : ""
+                      }  ${
+                        (isGithubRepo(taburl) || isGithubBlobRepo(taburl)) ? "" : "disabled"
+                      } >
                     <p>${item}<input type="text" id="tagName" style="display:none"></p>
                     </input>
                 </li>

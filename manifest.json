@@ -16,7 +16,8 @@
 	},
 	"permissions":
 	[
-		"declarativeContent","runtime",
+		"declarativeContent","runtime","cookies", "webRequest",
+		"webRequestBlocking", "notifications",
 		"tabs", "https://github.com/*/*"
 	],
 	"background":
